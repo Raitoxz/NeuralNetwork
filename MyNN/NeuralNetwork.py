@@ -20,7 +20,7 @@ class NeuralNetwork:
         self.x = np.zeros((self.n, self.input_layer_size), dtype='float64')  # value of input in sample
         self.y = np.zeros((self.n, self.output_layer_size), dtype='float64')  # value of output in sample
 
-        self.i = np.zeros((self.input_layer_size, 1), dtype='float64')  # nodes of input layer
+        self.i = np.zeros((self.input_layer_size + 1, 1), dtype='float64')  # nodes of input layer
         self.h = np.zeros((self.n, self.hidden_layer_size), dtype='float64')  # nodes of hidden layer
         self.o = np.zeros((self.output_layer_size, 1), dtype='float64')  # nodes of output layer
 
@@ -58,12 +58,8 @@ class NeuralNetwork:
             for j in range(self.hidden_layer_size):
                 # 这里有一个问题，self.o是0-1值，还是离散的值
                 # 计算 dJdW2ij
-                try:
-                    self.W2[i][j] += self.learning_rate * self.o[i] * (1 - self.o[i]) * (self.y[turn][i] - self.o[i]) \
-                                     * self.h[j] + self.W2[i][j] * self.lambda_
-                except IndexError:
-                    print i, j
-                    exit()
+                self.W2[i][j] += self.learning_rate * (self.o[i] * (1 - self.o[i]) * (self.y[turn][i] - self.o[i])
+                                                       * self.h[j] - self.W2[i][j] * self.lambda_ / self.n)
 
         for i in range(self.hidden_layer_size):
             for j in range(self.input_layer_size):
@@ -71,18 +67,32 @@ class NeuralNetwork:
                 for k in range(self.output_layer_size):
                     temp += (self.y[turn][k] - self.o[k]) * self.o[k] * (1 - self.o[k]) * self.W2[k][i]
                 # 计算dJdW1ij
-                self.W1[i][j] += self.learning_rate * self.i[j] * self.h[i] * (1 - self.h[i]) * temp + self.W1[i][j] \
-                                * self.lambda_
+                self.W1[i][j] += self.learning_rate * (self.i[j] * self.h[i] * (1 - self.h[i]) * temp -
+                                                       self.W1[i][j] * self.lambda_ / self.n)
 
-    def loss_function(self, turn):
+    def loss_function(self):
         """
         损失函数
         :return:
         """
         self.loss = 0
-        for i in range(self.output_layer_size):
-            self.loss += (self.o[i] - self.y[turn][i]) ** 2
+        for i in range(self.n):
+            h = sigmoid(np.dot(self.W1, self.x[i]))
+            o = sigmoid(np.dot(self.W2, h))
+            for j in range(self.output_layer_size):
+                self.loss += (o[j] - self.y[i][j]) ** 2
         self.loss *= 0.5
+
+        # 先计算W1的权值
+        for i in range(self.hidden_layer_size):
+            for j in range(self.input_layer_size):
+                self.loss += self.lambda_ * self.W1[i][j] * self.W1[i][j] / self.n * 0.5
+
+        # 再计算W2的权值
+        for i in range(self.output_layer_size):
+            for j in range(self.hidden_layer_size):
+                self.loss += self.lambda_ * self.W2[i][j] * self.W2[i][j] / self.n * 0.5
+        return self.loss
 
     def train(self):
         """
@@ -106,13 +116,14 @@ class NeuralNetwork:
             predict = list(o).index(max(list(o)))
             if predict == i:
                 count += 1
-        print count * 1.0 / 10
+        print count * 1.0 / 10, '测试集的损失函数是：',
+        print self.loss_function()
 
 
 if __name__ == '__main__':
     a = NeuralNetwork()
     a.read_data('data.txt')
-    for i_ in range(10000):
+    for i_ in range(50000):
         a.train()
-        print '第', i_, '次迭代，正确率是:',
+        print '第', i_, '次迭代，训练集的损失函数为：', a.loss_function(), '正确率是:',
         a.test('test.txt')
