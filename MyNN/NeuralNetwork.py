@@ -2,6 +2,8 @@
 import numpy as np
 from ActivationFunction import sigmoid
 import Reader
+from xlrd import open_workbook
+from xlutils.copy import copy
 
 
 class NeuralNetwork:
@@ -24,7 +26,7 @@ class NeuralNetwork:
         self.h = np.zeros((self.n, self.hidden_layer_size), dtype='float64')  # nodes of hidden layer
         self.o = np.zeros((self.output_layer_size, 1), dtype='float64')  # nodes of output layer
 
-        self.learning_rate = 0.5  # 学习率
+        self.learning_rate = 0.6  # 学习率
         self.loss = 0  # 损失
         self.lambda_ = 0.0001
 
@@ -116,14 +118,35 @@ class NeuralNetwork:
             predict = list(o).index(max(list(o)))
             if predict == i:
                 count += 1
-        print count * 1.0 / 10, '测试集的损失函数是：',
-        print self.loss_function()
+        # print count * 1.0 / 10, '测试集的损失函数是：',
+        # print self.loss_function()
+        return count * 1.0 / 10, self.loss_function()
 
 
 if __name__ == '__main__':
     a = NeuralNetwork()
     a.read_data('data.txt')
-    for i_ in range(50000):
+    loss = []
+    old_loss = 1
+    new_loss = 0
+    i_ = 1
+    accuracy = 0
+    while abs(old_loss - new_loss) > 0.00001:
         a.train()
-        print '第', i_, '次迭代，训练集的损失函数为：', a.loss_function(), '正确率是:',
-        a.test('test.txt')
+        old_loss = new_loss
+        # print '第', i_, '次迭代，训练集的损失函数为：', a.loss_function(), '正确率是:',
+        accuracy, new_loss = a.test('test.txt')
+        loss.append(new_loss)
+        i_ += 1
+        # print old_loss, new_loss
+
+    r = open_workbook('4.xlsx')
+    w = copy(r)
+    w_sheet = w.get_sheet(0)
+
+    for j_ in range(i_ - 1):
+        w_sheet.write(j_, 0, j_ + 1)
+        w_sheet.write(j_, 1, loss[j_])
+
+    w.save('7.xls')
+
